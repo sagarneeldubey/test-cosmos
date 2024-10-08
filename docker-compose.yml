@@ -1,0 +1,18 @@
+services:
+  meta-server:
+    build: ./
+    image: meta-image:latest
+    platform: linux/amd64
+    command: uvicorn app.main:app --reload --host 0.0.0.0 --port 2432
+    environment:
+      - OPENAI_API_KEY=your-api-key
+    networks:
+      - main-net
+    ports:
+      - "2432:2432"
+    volumes:
+      - .:/app
+
+networks:
+  main-net:
+    driver: bridge

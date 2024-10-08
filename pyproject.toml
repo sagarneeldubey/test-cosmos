@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "structured-output"
+version = "0.1.0"
+description = "API to return structured information from a book of text"
+authors = ["Sagar Dubey <sagarned@tepper.cmu.edu>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.115.0"
+pandas = "^2.2.3"
+openai = "^1.51.2"
+pydantic = "^2.9.2"
+numpy = "^2.1.2"
+uvicorn = "^0.31.0"
+polars-lts-cpu = "^1.9.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

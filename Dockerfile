@@ -27,3 +27,5 @@ COPY . .
 RUN poetry install --only-root
 
 EXPOSE 2432
+
+CMD uvicorn app.main:app --host=0.0.0.0 --port=2432

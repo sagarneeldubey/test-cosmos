@@ -3,45 +3,55 @@ from fastapi import FastAPI
 from typing import Dict
 from .config import (
     LOG_LEVEL,
-    YEAR_CHAR_CUTOFF,
-    PARTIAL_CHAR_CUTOFF,
-    SUMMARY_CHAR_CUTOFF,
-    DATA_URL,
 )
-from .schema import Output
-from .utils import extract_metadata_partial, extract_summary, extract_year
-import polars as pl
-import pandas as pd
+
+from azure.cosmos import CosmosClient, exceptions
+
 
 logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%m/%d/%Y %I:%M:%S %p")
 logger = logging.getLogger("structured")
 logging.getLogger("structured").setLevel(LOG_LEVEL)
 
+URL = ""  # Replace with your Cosmos DB account URL
+KEY = ""  # Replace with your primary key
+DATABASE_NAME = ""  # Replace with your database name
+CONTAINER_NAME = ""
+
 app = FastAPI()
 
 
-@app.get("/meta-data")
-def meta_data(url: str) -> Output | None:
-    if not url:
-        return None
+def connect_to_cosmos() -> CosmosClient:
+    """
+    Establish a connection to the Cosmos DB.
+    """
+    return CosmosClient(URL, credential=KEY)
 
-    df = pl.read_parquet(DATA_URL)
-    df_filtered = df.filter(pl.col("url").str.contains(url.lower().strip()))
 
-    if not len(df_filtered):
-        return None
+def read_item_by_id(item_id: str) -> dict:
+    """
+    Retrieve a single item by its ID.
+    """
+    try:
+        client = connect_to_cosmos()
+        database = client.get_database_client(DATABASE_NAME)
+        container = database.get_container_client(CONTAINER_NAME)
 
-    url_text = df_filtered.select("url").to_series().to_list()[0]
-    text = df_filtered.select("text").to_series().to_list()[0]
-    year = extract_year(text[-YEAR_CHAR_CUTOFF:])
-    meta_data_partial = extract_metadata_partial(text[:PARTIAL_CHAR_CUTOFF])
-    summary = extract_summary(text[:SUMMARY_CHAR_CUTOFF]).summary
+        query = "SELECT * FROM c WHERE c.id = @id"
+        items = container.query_items(
+            query=query,
+            parameters=[{"name": "@id", "value": item_id}],
+            enable_cross_partition_query=True,
+        )
+        item = next(items, None)  # None if no item is found
 
-    return Output(
-        url=url_text,
-        author=meta_data_partial.author,
-        title=meta_data_partial.title,
-        year=year,
-        genre=meta_data_partial.genre,
-        summary=summary,
-    )
+        return item if item else {"error": "Item not found"}
+    except exceptions.CosmosHttpResponseError as e:
+        return {"error": f"Error retrieving item: {e.message}"}
+
+
+@app.get("/item")
+def item_fetch(item_id: str) -> Dict:
+
+    item = read_item_by_id(item_id)
+
+    return item
